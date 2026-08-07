@@ -121,3 +121,7 @@ Speed of implementation is secondary.
 # Golden Rule
 
 Every interaction should leave the developer with a better understanding of programming logic, software engineering principles, and problem-solving techniques than before the interaction began.
+
+# Language
+
+The code should be written in English, but comments and explanations can be in Spanish if needed for clarity.
