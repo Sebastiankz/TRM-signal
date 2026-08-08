@@ -49,4 +49,49 @@ def calcular_metricas(df: pd.DataFrame) -> pd.DataFrame:
     )
     df["z_score"] = (df["pct_change"] - ventana.mean()) / ventana.std()
 
+    # Percentil empírico: qué lugar ocupa el movimiento de hoy entre
+    # los últimos 252. No supone ninguna distribución, solo cuenta.
+
+    df["pctl_abs"] = (
+        df["pct_change"]
+        .abs()
+        .rolling(DIAS_HABILES_ANIO, min_periods=MINIMO_PARA_VOLATILIDAD)
+        .rank(pct=True)
+        * 100
+    )
+
     return df
+
+COLUMNAS_MARTS = [
+    "valid_from", "valid_to", "market_date", "value", "pct_change",
+    "ma_7", "ma_30", "pct_vs_ma_30", "z_score", "pctl_abs",
+]
+
+INSERT_MARTS = f"""
+    INSERT INTO marts.trm_daily ({", ".join(COLUMNAS_MARTS)})
+    VALUES ({", ".join(["%s"] * len(COLUMNAS_MARTS))})
+"""
+
+def _preparar_filas(df: pd.DataFrame) -> list[tuple]:
+    """Convierte el DataFrame a tuplas listas para psycopg."""
+    datos = df[COLUMNAS_MARTS].copy()
+
+    for col in ("valid_from", "valid_to", "market_date"):
+        datos[col] = datos[col].dt.date # pandas guarda fechas como Timestamp, que psycopg no entiende. Convertimos a date. (Timestamp('2026-08-04 00:00:00') → date(2026, 8, 4))
+
+    # NaN/NaT de pandas -> None, que psycopg traduce a NULL
+    datos = datos.astype(object).where(pd.notna(datos), None)
+
+    return list(datos.itertuples(index=False, name=None))
+
+
+def guardar_marts(df: pd.DataFrame) -> int:
+    """Reemplaza por completo marts.trm_daily. Devuelve filas escritas."""
+    filas = _preparar_filas(df)
+
+    with psycopg.connect(**DB_CONFIG) as conn:
+        with conn.cursor() as cur:
+            cur.execute("TRUNCATE marts.trm_daily")
+            cur.executemany(INSERT_MARTS, filas)
+
+    return len(filas)
