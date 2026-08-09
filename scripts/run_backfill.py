@@ -8,9 +8,6 @@ from trm_signal.transform import calcular_metricas, guardar_marts, leer_staging
 INICIO_HISTORICO = date(1991, 12, 1)
 MARGEN_FUTURO = timedelta(days=7)
 
-metricas = guardar_marts(calcular_metricas(leer_staging()))
-print(f"marts: {metricas} filas recalculadas")
-
 """Backfill es el proceso de llenar la base de datos con datos históricos de la TRM."""
 
 def main() -> None:
@@ -22,6 +19,9 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+metricas = guardar_marts(calcular_metricas(leer_staging()))
+print(f"marts: {metricas} filas recalculadas")
 
 
 
