@@ -8,7 +8,7 @@ cubre que la TRM se publica con anticipación.
 from datetime import date, timedelta
 
 from trm_signal.extract import fetch_trm
-from trm_signal.load import cargar_archivo
+from trm_signal.load import cargar_desde_s3
 from trm_signal.storage import guardar_crudo
 from trm_signal.transform import leer_staging, calcular_metricas, guardar_marts
 
@@ -20,9 +20,9 @@ def main() -> None:
     desde, hasta = hoy - VENTANA, hoy + MARGEN_FUTURO
 
     texto = fetch_trm(desde, hasta)
-    ruta = guardar_crudo(texto)
-    filas = cargar_archivo(ruta)
-    print(f"diario: {filas} filas [{desde} .. {hasta}] -> {ruta}")
+    uri = guardar_crudo(texto)
+    filas = cargar_desde_s3(uri)
+    print(f"diario: {filas} filas [{desde} .. {hasta}] -> {uri}")
 
     metricas = guardar_marts(calcular_metricas(leer_staging()))
     print(f"marts: {metricas} filas recalculadas")
