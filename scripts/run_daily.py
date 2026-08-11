@@ -1,4 +1,3 @@
-
 """Actualiza la base con los últimos datos de la TRM.
 
 Descarga una ventana móvil de 7 días hacia atrás y 7 hacia adelante:
