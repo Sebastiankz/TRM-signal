@@ -226,3 +226,9 @@ data/
 
 # claude
 .local.*
+
+# Airflow
+logs/
+plugins/
+config/
+docs/

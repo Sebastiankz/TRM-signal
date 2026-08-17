@@ -1,6 +1,6 @@
 """Zona raw: persiste las respuestas de la API sin modificarlas."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from functools import lru_cache
 import boto3
 
@@ -34,7 +34,7 @@ def guardar_crudo(contenido: str, momento: datetime | None = None) -> str:
 
     Devuelve la URI s3:// donde quedó guardada.
     """
-    momento = momento or datetime.now()
+    momento = momento or datetime.now(timezone.utc)
     key = _construir_key(momento)
 
     _cliente().put_object(
