@@ -1,3 +1,5 @@
+"""módulo de transformación de la señal TRM. Lee la zona staging, calcula métricas derivadas y escribe la zona marts."""
+
 import pandas as pd
 import psycopg
 
@@ -5,7 +7,7 @@ from trm_signal.config import DB_CONFIG
 
 CONSULTA = """
     SELECT valid_from, valid_to, value
-    FROM staging.trm
+    FROM landing.trm
     ORDER BY valid_from ASC
 """
 

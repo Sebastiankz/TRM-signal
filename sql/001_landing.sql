@@ -1,6 +1,6 @@
-CREATE SCHEMA IF NOT EXISTS staging;
+CREATE SCHEMA IF NOT EXISTS landing;
 
-CREATE TABLE IF NOT EXISTS staging.trm (
+CREATE TABLE IF NOT EXISTS landing.trm (
     valid_from DATE NOT NULL,
     valid_to DATE NOT NULL,
     value NUMERIC(12, 4) NOT NULL,

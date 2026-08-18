@@ -1,0 +1,1 @@
+ALTER SCHEMA staging RENAME TO landing;

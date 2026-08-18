@@ -11,7 +11,7 @@ from trm_signal.config import DB_CONFIG
 from trm_signal.storage import descargar_crudo
 
 UPSERT = """
-    INSERT INTO staging.trm
+    INSERT INTO landing.trm
         (valid_from, valid_to, value, currency, source_file)
     VALUES
         (%(valid_from)s, %(valid_to)s, %(value)s, %(currency)s, %(source_file)s)

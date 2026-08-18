@@ -1,0 +1,2 @@
+- [Estado conexión RDS/psql](project_rds_connection_setup.md) — variables PG* y .pgpass no configuradas aún (verificado 2026-08-18); DB_* del .env no equivale a PG* de libpq
+- [Perfil de aprendizaje del usuario](user_learning_profile.md) — junior en TRM-signal, enfoque socrático, confundía namespaces DB_* vs PG*
