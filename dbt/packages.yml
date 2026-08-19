@@ -1,0 +1,4 @@
+packages:
+  # paquete para funciones de utilidad de dbt. esto mas que todo para los test que se hacen en los modelos.
+  - package: dbt-labs/dbt_utils
+    version: [">=1.3.0", "<2.0.0"]
