@@ -1,4 +1,4 @@
-"""módulo de transformación de la señal TRM. Lee la zona staging, calcula métricas derivadas y escribe la zona marts."""
+"""módulo de transformación de la señal TRM. Lee la zona landing, calcula métricas derivadas y escribe la zona marts."""
 
 import pandas as pd
 import psycopg
@@ -15,7 +15,7 @@ DIAS_HABILES_ANIO = 252
 MINIMO_PARA_VOLATILIDAD = 60
 
 def leer_staging() -> pd.DataFrame:
-    """Lee la tabla staging.trm y devuelve un DataFrame con las columnas valid_from, valid_to y value."""
+    """Lee la tabla landing.trm y devuelve un DataFrame con las columnas valid_from, valid_to y value."""
     with psycopg.connect(**DB_CONFIG) as conn:
         with conn.cursor() as cur:
             cur.execute(CONSULTA)

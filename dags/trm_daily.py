@@ -54,7 +54,7 @@ def trm_daily():
 
     @task
     def load(uri: str) -> int:
-        """Carga el JSON crudo desde S3 a staging.trm. Devuelve filas procesadas."""
+        """Carga el JSON crudo desde S3 a landing.trm. Devuelve filas procesadas."""
         from trm_signal.load import cargar_desde_s3
 
         return cargar_desde_s3(uri)

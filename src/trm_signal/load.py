@@ -1,4 +1,4 @@
-# Carga el JSON crudo de la zona raw a staging.trm.
+# Carga el JSON crudo de la zona raw a landing.trm.
 
 import json
 from datetime import datetime
@@ -24,7 +24,7 @@ UPSERT = """
 """
 
 def _a_fila(registro: dict, origen: str) -> dict:
-    """Traduce un registro de la API al esquema de staging."""
+    """Traduce un registro de la API al esquema de landing."""
     return {
         "valid_from": datetime.fromisoformat(registro["vigenciadesde"]).date(),
         "valid_to": datetime.fromisoformat(registro["vigenciahasta"]).date(),
@@ -34,7 +34,7 @@ def _a_fila(registro: dict, origen: str) -> dict:
     }
 
 def cargar_texto(texto:str, origen: str) -> int:
-    """Parsea el JSON crudo y hace upsert a staging.trm.
+    """Parsea el JSON crudo y hace upsert a landing.trm.
 
     `origen` solo se registra para trazabilidad; no se usa para leer nada.
     Devuelve cuántas filas procesó.
@@ -52,7 +52,7 @@ def cargar_texto(texto:str, origen: str) -> int:
     return len(filas)
 
 def cargar_desde_s3(uri: str) -> int:
-    """Descarga un objeto de la zona raw y lo carga a staging."""
+    """Descarga un objeto de la zona raw y lo carga a landing."""
     return cargar_texto(descargar_crudo(uri), uri)
 
 
