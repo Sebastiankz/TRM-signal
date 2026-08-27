@@ -1,0 +1,11 @@
+# This is a dbt project file that defines the sources for the project. It specifies the source name, description, schema, and tables that are used in the project. The source defined here is "landing", which represents the typed landing of raw JSON from S3. The table defined under this source is "trm", which contains one row per TRM publication, with a natural key of "valid_from".
+
+version: 2
+
+sources:
+  - name: landing
+    description: "Aterrizaje tipado del JSON crudo de S3. Lo escribe load.py, no dbt."
+    schema: landing
+    tables:
+      - name: trm
+        description: "Una fila por publicación de la TRM. Clave natural: valid_from."
