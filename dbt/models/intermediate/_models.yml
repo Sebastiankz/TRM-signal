@@ -1,0 +1,97 @@
+version: 2
+
+models:
+  - name: int_trm_returns
+    description: >
+      Agrega la variación porcentual respecto a la publicación anterior.
+
+      **Materializado como tabla, a propósito.** El default de esta carpeta es
+      `view`, pero `int_trm_pctl` re-escanea este modelo ~252 veces por fila con
+      un `CROSS JOIN LATERAL`. Como vista, Postgres recalcularía el `lag` en cada
+      pasada. Es la única decisión de materialización del proyecto que se aparta
+      del default, y tiene una razón medible detrás.
+    columns:
+      - name: valid_from
+        data_tests: [unique, not_null]
+
+      - name: pct_change
+        description: >
+          Variación porcentual respecto a la publicación anterior. Como cada par
+          de publicaciones consecutivas está separado por exactamente **un día
+          hábil de mercado** (consecuencia de la contigüidad de la serie), este
+          número significa lo mismo en toda la historia y es comparable entre
+          semanas normales y semanas con festivo.
+
+          NULL en la primera fila: no hay predecesor contra el cual comparar.
+
+  - name: int_trm_rolling
+    description: >
+      Métricas de ventana móvil: promedios de 7 y 30 publicaciones, distancia al
+      promedio del mes, y z-score contra la volatilidad del último año.
+
+      Todas usan `case when count(...) = N` para reproducir el `min_periods` de
+      pandas. Sin eso, SQL promediaría las 3 filas disponibles y lo llamaría
+      "promedio de 30 días" — un número que miente sobre lo que representa.
+      Preferimos un NULL honesto.
+    columns:
+      - name: valid_from
+        data_tests: [unique, not_null]
+
+      - name: ma_7
+        description: >
+          Promedio de las últimas 7 publicaciones. NULL en las primeras 6 filas,
+          donde la ventana no está completa.
+
+      - name: ma_30
+        description: >
+          Promedio de las últimas 30 publicaciones. Es la referencia de "cómo
+          se viene comportando la TRM el último mes". NULL en las primeras 29 filas.
+
+      - name: pct_vs_ma_30
+        description: >
+          Distancia porcentual entre el valor de hoy y su promedio de 30
+          publicaciones. **Es la métrica más legible para una persona no
+          técnica**: responde directo si el dólar de hoy está caro o barato
+          frente al último mes.
+
+      - name: z_score
+        description: >
+          Cuántas desviaciones estándar se apartó la variación de hoy respecto a
+          cómo se venía moviendo la serie el **último año** (252 publicaciones),
+          no respecto a los 35 años completos: los regímenes cambiarios de 1995
+          y de 2026 no son comparables.
+
+          Usa `stddev_samp` (divide entre n-1) para igualar el `ddof=1` de pandas.
+
+          **Advertencia de interpretación:** el z-score ordena bien qué tan
+          inusual fue un movimiento, pero su lectura clásica ("más de 3 sigmas
+          ocurre el 0,3% de las veces") asume normalidad, y la TRM tiene colas
+          pesadas (curtosis ≈ 9,4 contra 3 de una normal). Para afirmaciones
+          cuantitativas usar `pctl_abs`, que no supone ninguna distribución.
+          Detalle en `docs/metricas.md`.
+
+  - name: int_trm_pctl
+    description: >
+      Percentil empírico móvil de la magnitud de la variación.
+
+      Es la única métrica sin equivalente directo en SQL: `PERCENT_RANK()` opera
+      sobre toda la partición, no sobre una ventana deslizante. Se reconstruye
+      contando con un `CROSS JOIN LATERAL` — para cada fila, cuántas de las 252
+      anteriores tuvieron una variación absoluta menor.
+    columns:
+      - name: valid_from
+        data_tests: [unique, not_null]
+
+      - name: pctl_abs
+        description: >
+          Porcentaje de las últimas 252 publicaciones cuya variación absoluta fue
+          menor o igual a la de esta fila. Un 99,6 significa que solo el 0,4% de
+          los movimientos del último año fueron más grandes.
+
+          La fórmula `(menores + (iguales+1)/2) / n` replica el `method='average'`
+          de pandas repartiendo el rango entre empates. Los empates existen: 41
+          publicaciones de la serie repiten exactamente el valor anterior y
+          producen `pct_change = 0` idéntico.
+
+          Es un conteo, no una inferencia: a diferencia del z-score, no supone
+          ninguna forma de la distribución.

@@ -2,26 +2,162 @@ version: 2
 
 models:
   - name: trm_daily
-    description: "Serie completa con métricas derivadas. Grano: una fila por publicación."
+    description: >
+      **La tabla principal del proyecto.** Serie histórica completa de la TRM con
+      todas sus métricas derivadas, lista para consultar sin cálculos adicionales.
+
+      **Grano:** una fila por publicación de la TRM (~8.300 filas, desde
+      1991-12-02). No es una fila por día calendario.
+
+      Se reconstruye entera en cada corrida. Es una capa derivada: no contiene
+      información, contiene conclusiones — toda la información vive río arriba,
+      en `landing.trm` y en el JSON crudo de S3.
     columns:
       - name: valid_from
+        description: "Primer día en que rige este valor. Clave natural."
         data_tests: [unique, not_null]
+
+      - name: valid_to
+        description: "Último día en que rige. Se extiende sobre fines de semana y festivos."
+
+      - name: market_date
+        description: >
+          Día hábil cuyas operaciones produjeron este valor. Usar esta columna
+          —y no `valid_from`— para agrupar por día de la semana.
+
       - name: value
+        description: "TRM en pesos por dólar."
         data_tests: [not_null]
+
+      - name: pct_change
+        description: "Variación % respecto a la publicación anterior (= un día hábil de mercado)."
+
+      - name: ma_7
+        description: "Promedio móvil de 7 publicaciones. NULL en las primeras 6 filas."
+
+      - name: ma_30
+        description: "Promedio móvil de 30 publicaciones. NULL en las primeras 29 filas."
+
+      - name: pct_vs_ma_30
+        description: >
+          Distancia % entre el valor de hoy y su promedio de 30 publicaciones.
+          La métrica más legible: dice si el dólar de hoy está caro o barato
+          frente al último mes.
+
+      - name: z_score
+        description: >
+          Desviaciones estándar respecto a la volatilidad del último año.
+          Útil para ordenar y comunicar; no para derivar probabilidades — la
+          serie tiene colas pesadas. Ver `pctl_abs`.
+
       - name: pctl_abs
-        description: "Percentil empírico de |variación| en las últimas 252 publicaciones."
+        description: >
+          Percentil empírico de |variación| en las últimas 252 publicaciones.
+          Es la versión defendible del z-score: no supone ninguna distribución.
         data_tests:
           - dbt_utils.accepted_range:
               arguments:
                 min_value: 0
                 max_value: 100
 
+      - name: computed_at
+        description: "Momento en que dbt recalculó esta fila. Trazabilidad de la corrida."
+        data_tests: [not_null]
+
   - name: trm_by_weekday
-    description: "Variación media por día de mercado, con error estándar."
+    description: >
+      Variación media de la TRM por día de la semana, agrupada por `market_date`.
+
+      **Grano:** una fila por día hábil (5 filas).
+
+      Responde la pregunta de la sección 9 del plan original, que parecía
+      incontestable: agrupada por `valid_from` la tabla mostraba sábados y ningún
+      lunes, un artefacto del calendario de publicación. Agrupada por
+      `market_date` aparece un gradiente monótono de lunes a viernes.
+
+      **Cómo leerla:** el gradiente es estadísticamente sólido (diferencia
+      lunes-viernes con t ≈ 3,5), pero **no es accionable**: la diferencia de
+      ~0,09 % es menor que el spread de conversión que paga cualquier persona
+      real. Es un hallazgo descriptivo, no una recomendación.
+
+      Además agrupa 35 años con regímenes cambiarios distintos (banda hasta 1999,
+      flotación después). Partir por década es la verificación natural pendiente.
     columns:
       - name: dow_num
+        description: >
+          Día de la semana según ISO: 1 = lunes … 5 = viernes. El test restringe
+          los valores a 1-5: si aparece un 6, significa que la agrupación volvió
+          a hacerse por `valid_from` en vez de `market_date`.
         data_tests:
+          - not_null
           - accepted_values:
               arguments:
                 values: [1, 2, 3, 4, 5]
                 quote: false
+
+      - name: dow
+        description: "Nombre del día, para presentación."
+
+      - name: n
+        description: >
+          Cuántas jornadas de ese día hay en la historia. Los lunes tienen ~400
+          menos que el resto: la Ley Emiliana corre muchos festivos colombianos
+          al lunes, y sin mercado no hay TRM que calcular.
+        data_tests: [not_null]
+
+      - name: avg_pct_change
+        description: "Variación % media de la TRM en ese día de mercado."
+
+      - name: sd_pct_change
+        description: >
+          Dispersión de las variaciones individuales — cuánto se mueve un día
+          cualquiera de ese tipo (≈0,7 %). **No confundir con `std_error`.**
+
+      - name: std_error
+        description: >
+          Precisión del promedio: `sd / sqrt(n)` (≈0,02 %). Mide cuánta
+          incertidumbre tiene `avg_pct_change`, no cuánto varían los días.
+
+          Que sea ~35 veces menor que `sd_pct_change` resume el hallazgo entero:
+          **el promedio es medible con precisión, pero un día individual es
+          impredecible**, porque el ruido diario es diez veces mayor que el
+          efecto. Sin esta columna, la tabla invita a la lectura ingenua.
+
+  - name: trm_month_end
+    description: >
+      Variación media de la TRM según la posición dentro del mes, para evaluar
+      si existe un efecto de fin de mes.
+
+      **Grano:** una fila por tramo (3 filas).
+
+      La posición se cuenta sobre **días de mercado**, no días calendario: "los
+      últimos 3 días del mes" son las últimas 3 jornadas con operaciones. Se
+      resuelve con un `row_number()` descendente particionado por mes, sin
+      necesidad de conocer los festivos ni la longitud de cada mes.
+
+      Leer `std_error` antes de concluir nada, por la misma razón que en
+      `trm_by_weekday`.
+    columns:
+      - name: tramo
+        description: >
+          `primeros_3` (primeras 3 jornadas del mes), `ultimos_3` (últimas 3) y
+          `resto`. Si una jornada cae en las dos puntas — meses con muy pocos
+          días de mercado — prevalece `ultimos_3`.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["primeros_3", "ultimos_3", "resto"]
+
+      - name: n
+        description: "Cantidad de jornadas en el tramo."
+        data_tests: [not_null]
+
+      - name: avg_pct_change
+        description: "Variación % media de las jornadas del tramo."
+
+      - name: sd_pct_change
+        description: "Dispersión de las variaciones individuales dentro del tramo."
+
+      - name: std_error
+        description: "Precisión del promedio: `sd / sqrt(n)`."

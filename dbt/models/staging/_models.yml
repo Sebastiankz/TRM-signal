@@ -2,22 +2,62 @@ version: 2
 
 models:
   - name: stg_trm
-    description: "Serie de TRM con market_date derivado. Una fila por publicación."
+    description: >
+      Primera capa de dbt sobre `landing.trm`. No transforma valores: solo
+      normaliza la interfaz y deriva las dos columnas que necesitan las capas
+      siguientes (`market_date` y `rn`).
+
+      **Grano:** una fila por publicación de la TRM. No es una fila por día
+      calendario — la publicación del sábado rige hasta el lunes, así que los
+      domingos y lunes no aparecen como `valid_from`. Esa decisión está
+      documentada en `docs/decisiones.md`.
     columns:
       - name: valid_from
-        description: "Primer día en que rige este valor. Clave natural."
+        description: >
+          Primer día en que rige este valor. Es la **clave natural** de la
+          serie: no se repite en 35 años de historia, y de ahí sale la
+          idempotencia de la carga (`ON CONFLICT (valid_from) DO UPDATE`).
         data_tests:
           - unique
           - not_null
+
+      - name: valid_to
+        description: >
+          Último día en que rige este valor. Suele coincidir con `valid_from`,
+          salvo cuando la publicación cubre fin de semana o festivo: la del
+          sábado rige hasta el lunes, y si el lunes es festivo, hasta el martes.
+        data_tests:
+          - not_null
+
       - name: value
-        description: "TRM en pesos por dólar."
+        description: "TRM en pesos colombianos por dólar."
         data_tests:
           - not_null
           - dbt_utils.accepted_range:
               arguments:
                 min_value: 0
                 inclusive: false
+
+      - name: currency
+        description: >
+          Moneda de cotización. Constante `COP` en las 8.300+ publicaciones de
+          la serie. Se conserva por fidelidad al origen, no porque varíe.
+
       - name: market_date
         description: >
-          Día hábil cuyas operaciones produjeron este valor: el día anterior
-          al inicio de vigencia. NULL en la primera fila de la serie.
+          Día hábil cuyas operaciones cambiarias produjeron este valor: el día
+          anterior al inicio de vigencia. **Es la fecha correcta para cualquier
+          análisis por día de la semana**, porque `valid_from` es la fecha de
+          publicación, no la del mercado.
+
+          Se calcula con `lag(valid_to)` y no con `valid_from - 1`: la serie es
+          contigua (verificado, 0 huecos en 35 años) así que dan lo mismo, pero
+          `lag` devuelve NULL en la primera fila en vez de inventar un día de
+          mercado que nunca existió. El invariante que lo sostiene está
+          protegido por el test `assert_serie_contigua`.
+
+      - name: rn
+        description: >
+          Posición de la fila en la serie ordenada por `valid_from`. Andamiaje
+          interno: `int_trm_pctl` la usa para definir la ventana móvil de 252
+          publicaciones por posición y no por fecha. No se expone en los marts.
