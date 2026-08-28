@@ -64,15 +64,6 @@ def trm_daily():
         """Construye y testea los modelos dbt. Falla si algún test falla."""
         return "cd /opt/airflow/dbt && dbt build --profiles-dir ."
 
-
-
-    # @task
-    # def transform() -> int:
-    #     """Calcula métricas y reemplaza marts.trm_daily. Devuelve filas escritas."""
-    #     from trm_signal.transform import calcular_metricas, guardar_marts, leer_staging
-
-    #     return guardar_marts(calcular_metricas(leer_staging()))
-
     filas_cargadas = load(store(extract()))
     filas_cargadas >> dbt_build()
 

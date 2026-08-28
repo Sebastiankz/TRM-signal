@@ -1,8 +1,9 @@
-"""Actualiza la base con los últimos datos de la TRM.
+"""Actualiza landing.trm con los últimos datos de la TRM.
 
-Descarga una ventana móvil de 7 días hacia atrás y 7 hacia adelante:
-el solapamiento hacia atrás rellena corridas fallidas, y el margen futuro
-cubre que la TRM se publica con anticipación.
+Ventana móvil de 7 días hacia atrás y 7 hacia adelante: el solapamiento
+rellena corridas fallidas, el margen futuro cubre la publicación anticipada.
+
+Las métricas se calculan aparte, con `dbt build`.
 """
 
 from datetime import date, timedelta
@@ -10,10 +11,10 @@ from datetime import date, timedelta
 from trm_signal.extract import fetch_trm
 from trm_signal.load import cargar_desde_s3
 from trm_signal.storage import guardar_crudo
-from trm_signal.transform import leer_staging, calcular_metricas, guardar_marts
 
 VENTANA = timedelta(days=7)
 MARGEN_FUTURO = timedelta(days=7)
+
 
 def main() -> None:
     hoy = date.today()
@@ -24,9 +25,6 @@ def main() -> None:
     filas = cargar_desde_s3(uri)
     print(f"diario: {filas} filas [{desde} .. {hasta}] -> {uri}")
 
-    metricas = guardar_marts(calcular_metricas(leer_staging()))
-    print(f"marts: {metricas} filas recalculadas")
 
 if __name__ == "__main__":
     main()
-

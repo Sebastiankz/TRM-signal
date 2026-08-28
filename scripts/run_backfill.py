@@ -4,7 +4,6 @@ from datetime import date, timedelta
 from trm_signal.extract import fetch_trm
 from trm_signal.load import cargar_desde_s3
 from trm_signal.storage import guardar_crudo
-from trm_signal.transform import calcular_metricas, guardar_marts, leer_staging
 
 INICIO_HISTORICO = date(1991, 12, 1)
 MARGEN_FUTURO = timedelta(days=7)
@@ -15,9 +14,6 @@ def main() -> None:
     uri = guardar_crudo(texto)
     filas = cargar_desde_s3(uri)
     print(f"backfill: {filas} filas [{INICIO_HISTORICO} .. {hasta}] -> {uri}")
-
-    metricas = guardar_marts(calcular_metricas(leer_staging()))
-    print(f"marts: {metricas} filas recalculadas")
 
 if __name__ == "__main__":
     main()
