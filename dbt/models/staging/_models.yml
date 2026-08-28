@@ -1,0 +1,23 @@
+version: 2
+
+models:
+  - name: stg_trm
+    description: "Serie de TRM con market_date derivado. Una fila por publicación."
+    columns:
+      - name: valid_from
+        description: "Primer día en que rige este valor. Clave natural."
+        data_tests:
+          - unique
+          - not_null
+      - name: value
+        description: "TRM en pesos por dólar."
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                inclusive: false
+      - name: market_date
+        description: >
+          Día hábil cuyas operaciones produjeron este valor: el día anterior
+          al inicio de vigencia. NULL en la primera fila de la serie.
